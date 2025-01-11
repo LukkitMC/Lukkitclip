@@ -14,7 +14,7 @@ subprojects {
     }
 }
 
-val mainClass = "org.leavesmc.leavesclip.Main"
+val mainClass = "org.lukkitmc.lukkitclip.Main"
 
 tasks.jar {
     val java6Jar = project(":java6").tasks.named("jar")
@@ -31,23 +31,23 @@ tasks.jar {
     }
 
     doFirst {
-        val clipVerFile = File("leavesclip-version")
+        val clipVerFile = File("lukkitclip-version")
         if (!clipVerFile.exists()) {
             if(!clipVerFile.createNewFile()){
-                println("failed to create file: leavesclip-version")
+                println("failed to create file: lukkitclip-version")
                 exitProcess(1)
             }
         }
         clipVerFile.writeText(project.version.toString())
     }
 
-    from(file("leavesclip-version")) {
+    from(file("lukkitclip-version")) {
         into("META-INF")
     }
 
-    from(file("LEAVESCLIP_LICENSE")) {
+    from(file("LUKKITCLIP_LICENSE")) {
         into("META-INF/license")
-        rename { "leavesclip-LICENSE.txt" }
+        rename { "lukkitclip-LICENSE.txt" }
     }
 
     rename { name ->
@@ -82,50 +82,6 @@ publishing {
             from(components["java"])
             artifact(sourcesJar)
             withoutBuildIdentifier()
-
-            pom {
-                val repoPath = "LeavesMC/Leavesclip"
-                val repoUrl = "https://github.com/$repoPath"
-
-                name.set("Leavesclip")
-                description.set(project.description)
-                url.set(repoUrl)
-                packaging = "jar"
-
-                licenses {
-                    license {
-                        name.set("MIT")
-                        url.set("$repoUrl/blob/main/LEAVESCLIP_LICENSE")
-                        distribution.set("repo")
-                    }
-                }
-
-                issueManagement {
-                    system.set("GitHub")
-                    url.set("$repoUrl/issues")
-                }
-
-                developers {
-                    developer {
-                        id.set("DemonWav")
-                        name.set("Kyle Wood")
-                        email.set("demonwav@gmail.com")
-                        url.set("https://github.com/DemonWav")
-                    }
-                    developer {
-                        id.set("MC_XiaoHei")
-                        name.set("MC_XiaoHei")
-                        email.set("xiaohei.xor7studio@foxmail.com")
-                        url.set("https://github.com/MC_XiaoHei")
-                    }
-                }
-
-                scm {
-                    url.set(repoUrl)
-                    connection.set("scm:git:$repoUrl.git")
-                    developerConnection.set("scm:git:git@github.com:$repoPath.git")
-                }
-            }
         }
 
         repositories {

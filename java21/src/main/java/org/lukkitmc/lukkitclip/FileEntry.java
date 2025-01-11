@@ -1,4 +1,4 @@
-package org.leavesmc.leavesclip;
+package org.lukkitmc.lukkitclip;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -69,7 +69,7 @@ record FileEntry(byte[] hash, String id, String path) {
         }
 
         final String filePath = Util.endingSlash(baseDir) + this.path;
-        InputStream fileStream = AutoUpdate.getResourceAsStream(AutoUpdate.autoUpdateCorePath, filePath);
+        InputStream fileStream = FileEntry.class.getResourceAsStream(filePath);
         if (fileStream == null) {
             // This file is not in our jar, but may be in the original
             if (originalRootDir == null) {

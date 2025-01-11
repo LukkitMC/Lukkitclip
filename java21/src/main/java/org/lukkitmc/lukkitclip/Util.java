@@ -1,18 +1,19 @@
-package org.leavesmc.leavesclip;
+package org.lukkitmc.lukkitclip;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-import static org.leavesmc.leavesclip.Leavesclip.LOGGER;
-
 class Util {
 
-    private Util() {
-    }
+    private Util() {}
 
     public static MessageDigest sha256Digest = getSha256Digest();
 
@@ -56,7 +57,7 @@ class Util {
         } else {
             p = "/" + path;
         }
-        final InputStream stream = AutoUpdate.getResourceAsStream(AutoUpdate.autoUpdateCorePath, p);
+        final InputStream stream = Util.class.getResourceAsStream(p);
         if (stream == null) {
             return null;
         }
@@ -73,7 +74,6 @@ class Util {
     static boolean isDataValid(final byte[] data, final byte[] hash) {
         return Arrays.equals(hash, sha256Digest.digest(data));
     }
-
     static boolean isFileValid(final Path file, final byte[] hash) {
         if (Files.exists(file)) {
             final byte[] fileBytes = readBytes(file);
@@ -109,9 +109,9 @@ class Util {
     }
 
     static RuntimeException fail(final String message, final Throwable err) {
-        LOGGER.error(message);
+        System.err.println(message);
         if (err != null) {
-            LOGGER.error("Error", err);
+            err.printStackTrace();
         }
         System.exit(1);
         throw new InternalError();

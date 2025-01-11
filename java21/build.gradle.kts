@@ -41,12 +41,11 @@ dependencies {
     implementation("org.slf4j:slf4j-api:$slf4jVersion")
     implementation("org.jetbrains:annotations:$jbAnnotationsVersion")
     implementation("org.spongepowered:mixin:$mixinVersion")
-    // implementation("org.leavesmc.leaves:leaves-api:$leavesApiVersion")
     implementation("io.sigpipe:jbsdiff:1.0")
 }
 
 tasks.shadowJar {
-    val prefix = "leavesclip.libs"
+    val prefix = "lukkitclip.libs"
     listOf("org.apache", "org.tukaani", "io.sigpipe").forEach { pack ->
         relocate(pack, "$prefix.$pack")
     }

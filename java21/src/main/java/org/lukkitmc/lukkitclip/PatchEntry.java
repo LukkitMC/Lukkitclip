@@ -1,18 +1,7 @@
-/*
- * Paperclip - Paper Minecraft launcher
- *
- * Copyright (c) 2019 Kyle Wood (DemonWav)
- * https://github.com/PaperMC/Paperclip
- *
- * MIT License
- */
-
-package org.leavesmc.leavesclip;
+package org.lukkitmc.lukkitclip;
 
 import io.sigpipe.jbsdiff.InvalidHeaderException;
 import io.sigpipe.jbsdiff.Patch;
-import org.apache.commons.compress.compressors.CompressorException;
-
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,8 +12,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import org.apache.commons.compress.compressors.CompressorException;
 
-import static java.nio.file.StandardOpenOption.*;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.nio.file.StandardOpenOption.WRITE;
 
 record PatchEntry(
         String location,
@@ -114,7 +106,7 @@ record PatchEntry(
 
         // Get and verity patch data is correct
         final String fullPatchPath = "/META-INF/" + Util.endingSlash(this.location) + this.patchPath;
-        final InputStream patchStream = AutoUpdate.getResourceAsStream(AutoUpdate.autoUpdateCorePath, fullPatchPath);
+        final InputStream patchStream = PatchEntry.class.getResourceAsStream(fullPatchPath);
         if (patchStream == null) {
             throw new IllegalStateException("Patch file not found: " + fullPatchPath);
         }

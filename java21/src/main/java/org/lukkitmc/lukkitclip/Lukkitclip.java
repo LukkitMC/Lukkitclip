@@ -1,15 +1,4 @@
-package org.leavesmc.leavesclip;
-
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-import joptsimple.OptionSpec;
-import launchwrapper.ITweaker;
-import launchwrapper.LaunchClassLoader;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.spongepowered.asm.mixin.MixinEnvironment;
-import org.spongepowered.asm.mixin.Mixins;
+package org.lukkitmc.lukkitclip;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,157 +8,47 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
-public final class Leavesclip {
-    public static final Logger LOGGER = LoggerFactory.getLogger("Leavesclip");
-    private static final String DEFAULT_TWEAK = "org.spongepowered.asm.launch.MixinTweaker";
-    public static LaunchClassLoader classLoader;
-    public static Map<String, Object> blackboard = new HashMap<>();
+public final class Lukkitclip {
 
     public static void main(final String[] args) {
-        new Leavesclip(args);
-    }
-
-    private Leavesclip(final String[] args) {
         if (Path.of("").toAbsolutePath().toString().contains("!")) {
-            LOGGER.error("Leavesclip may not run in a directory containing '!'. Please rename the affected folder.");
+            System.err.println("Lukkitclip may not run in a directory containing '!'. Please rename the affected folder.");
             System.exit(1);
-        }
-
-        if (!Boolean.getBoolean("leavesclip.disable.auto-update")) {
-            AutoUpdate.init();
         }
 
         final URL[] classpathUrls = setupClasspath();
 
-        final ClassLoader parentClassLoader = Leavesclip.class.getClassLoader().getParent();
-        classLoader = new LaunchClassLoader(classpathUrls, parentClassLoader);
+        final ClassLoader parentClassLoader = Lukkitclip.class.getClassLoader().getParent();
+        final URLClassLoader classLoader = new URLClassLoader(classpathUrls, parentClassLoader);
 
-        final OptionParser parser = new OptionParser();
-        parser.allowsUnrecognizedOptions();
+        final String mainClassName = findMainClass();
+        System.out.println("Starting " + mainClassName);
 
-        final OptionSpec<String> tweakClassOption = parser
-                .accepts("tweakClass", "Tweak class(es) to load")
-                .withRequiredArg()
-                .defaultsTo(DEFAULT_TWEAK);
-        final OptionSpec<String> nonOption = parser.nonOptions();
-
-        final OptionSet options = parser.parse(args);
-        final List<String> tweakClassNames = new ArrayList<>(options.valuesOf(tweakClassOption));
-
-        final List<String> argumentList = new ArrayList<>();
-        // This list of names will be interacted with through tweakers. They can append to this list
-        // any 'discovered' tweakers from their preferred mod loading mechanism
-        // By making this object discoverable and accessible it's possible to perform
-        // things like cascading of tweakers
-        blackboard.put("TweakClasses", tweakClassNames);
-
-        // This argument list will be constructed from all tweakers. It is visible here so
-        // all tweakers can figure out if a particular argument is present, and add it if not
-        blackboard.put("ArgumentList", argumentList);
-
-        // This is to prevent duplicates - in case a tweaker decides to add itself or something
-        final Set<String> visitedTweakerNames = new HashSet<>();
-        // The 'definitive' list of tweakers
-        final List<ITweaker> allTweakers = new ArrayList<>();
-        try {
-            final List<ITweaker> pendingTweakers = new ArrayList<>(tweakClassNames.size() + 1);
-            // The list of tweak instances - may be useful for interoperability
-            blackboard.put("Tweaks", pendingTweakers);
-            // The primary tweaker (the first one specified on the command line) will actually
-            // be responsible for providing the 'main' name and generally gets called first
-            ITweaker primaryTweaker = null;
-            // This loop will terminate, unless there is some sort of pathological tweaker
-            // that reinserts itself with a new identity every pass
-            // It is here to allow tweakers to "push" new tweak classes onto the 'stack' of
-            // tweakers to evaluate allowing for cascaded discovery and injection of tweakers
-            while (!tweakClassNames.isEmpty()) {
-                for (final Iterator<String> it = tweakClassNames.iterator(); it.hasNext(); ) {
-                    final String tweakName = it.next();
-                    // Safety check - don't reprocess something we've already visited
-                    if (visitedTweakerNames.contains(tweakName)) {
-                        LOGGER.warn("Tweak class name {} has already been visited -- skipping", tweakName);
-                        // remove the tweaker from the stack otherwise it will create an infinite loop
-                        it.remove();
-                        continue;
-                    } else {
-                        visitedTweakerNames.add(tweakName);
-                    }
-                    LOGGER.info("Loading tweak class name {}", tweakName);
-
-                    // Ensure we allow the tweak class to load with the parent classloader
-                    classLoader.getClassLoaderExclusions().add(tweakName.substring(0, tweakName.lastIndexOf('.')));
-                    final ITweaker tweaker = (ITweaker) Class.forName(tweakName, true, classLoader)
-                            .getConstructor().newInstance();
-                    pendingTweakers.add(tweaker);
-
-                    // Remove the tweaker from the list of tweaker names we've processed this pass
-                    it.remove();
-                    // If we haven't visited a tweaker yet, the first will become the 'primary' tweaker
-                    if (primaryTweaker == null) {
-                        LOGGER.info("Using primary tweak class name {}", tweakName);
-                        primaryTweaker = tweaker;
-                    }
-                }
-
-                // Configure environment to avoid warn
-                configureMixin();
-
-                // Now, iterate all the tweakers we just instantiated
-                while (!pendingTweakers.isEmpty()) {
-                    final ITweaker tweaker = pendingTweakers.removeFirst();
-                    LOGGER.info("Calling tweak class {}", tweaker.getClass().getName());
-                    tweaker.acceptOptions(options.valuesOf(nonOption));
-                    tweaker.injectIntoClassLoader(classLoader);
-                    allTweakers.add(tweaker);
-                }
-                // continue around the loop until there's no tweak classes
-            }
-
-            // Once we're done, we then ask all the tweakers for their arguments and add them all to the
-            // master argument list
-            for (final ITweaker tweaker : allTweakers) {
-                argumentList.addAll(Arrays.asList(tweaker.getLaunchArguments()));
-            }
-
-            final String mainClassName = findMainClass();
-            LOGGER.info("Starting {}", mainClassName);
-
-            final Thread runThread = getServerMainThread(args, argumentList, mainClassName);
-            runThread.start();
-        } catch (Exception e) {
-            LOGGER.error("Unable to launch", e);
-            System.exit(1);
-        }
-    }
-
-    private static @NotNull Thread getServerMainThread(String[] args, List<String> argumentList, String mainClassName) {
         final Thread runThread = new Thread(() -> {
             try {
-                argumentList.addAll(Arrays.asList(args));
                 final Class<?> mainClass = Class.forName(mainClassName, true, classLoader);
                 final MethodHandle mainHandle = MethodHandles.lookup()
                         .findStatic(mainClass, "main", MethodType.methodType(void.class, String[].class))
                         .asFixedArity();
-                mainHandle.invoke((Object) argumentList.toArray(new String[0]));
+                mainHandle.invoke((Object) args);
             } catch (final Throwable t) {
                 throw Util.sneakyThrow(t);
             }
         }, "ServerMain");
         runThread.setContextClassLoader(classLoader);
-        return runThread;
+        runThread.start();
     }
 
-    private void configureMixin() {
-        MixinEnvironment.getDefaultEnvironment().setSide(MixinEnvironment.Side.SERVER);
-        Mixins.addConfiguration("mixins.akarin.core.json");
-    }
-
-    private static URL @NotNull [] setupClasspath() {
+    private static URL[] setupClasspath() {
         final var repoDir = Path.of(System.getProperty("bundlerRepoDir", ""));
 
         final PatchEntry[] patches = findPatches();
@@ -192,9 +71,9 @@ public final class Leavesclip {
 
         final Map<String, Map<String, URL>> classpathUrls = extractAndApplyPatches(baseFile, patches, repoDir);
 
-        // Exit if user has set `paperclip.patchonly` or `leavesclip.patchonly` system property to `true`
-        if (Boolean.getBoolean("paperclip.patchonly")
-                || Boolean.getBoolean("leavesclip.patchonly")) {
+        // Exit if user has set `paperclip.patchonly` and lukkitclip.patchonly system property to `true`
+        if (Boolean.getBoolean("paperclip.patchonly")||
+            Boolean.getBoolean("lukkitclip.patchonly")) {
             System.exit(0);
         }
 
@@ -211,7 +90,7 @@ public final class Leavesclip {
     }
 
     private static PatchEntry[] findPatches() {
-        final InputStream patchListStream = AutoUpdate.getResourceAsStream(AutoUpdate.autoUpdateCorePath, "/META-INF/patches.list");
+        final InputStream patchListStream = Lukkitclip.class.getResourceAsStream("/META-INF/patches.list");
         if (patchListStream == null) {
             return new PatchEntry[0];
         }
@@ -237,13 +116,11 @@ public final class Leavesclip {
     private static FileEntry[] findVersionEntries() {
         return findFileEntries("versions.list");
     }
-
     private static FileEntry[] findLibraryEntries() {
         return findFileEntries("libraries.list");
     }
-
     private static FileEntry[] findFileEntries(final String fileName) {
-        final InputStream libListStream = AutoUpdate.getResourceAsStream(AutoUpdate.autoUpdateCorePath, "/META-INF/" + fileName);
+        final InputStream libListStream = Lukkitclip.class.getResourceAsStream("/META-INF/" + fileName);
         if (libListStream == null) {
             return null;
         }
